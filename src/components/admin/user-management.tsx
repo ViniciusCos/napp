@@ -33,7 +33,6 @@ import {
   Mail, 
   Phone, 
   Calendar,
-  MoreVertical,
   Eye,
   Key,
   UserCog,
@@ -147,10 +146,10 @@ export function UserManagement({ initialUsers }: UserManagementProps) {
       toast.success('Email de redefinição de senha enviado com sucesso!')
       setIsResetPasswordOpen(false)
       setSelectedUser(null)
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Erro ao enviar email:', error)
       toast.error('Erro ao enviar email de redefinição de senha', {
-        description: error.message
+        description: error instanceof Error ? error.message : 'Erro desconhecido'
       })
     } finally {
       setIsResettingPassword(false)
@@ -226,7 +225,7 @@ export function UserManagement({ initialUsers }: UserManagementProps) {
 
             <div className="space-y-2">
               <Label htmlFor="role-filter">Filtrar por Função</Label>
-              <Select value={roleFilter} onValueChange={(value: any) => setRoleFilter(value)}>
+              <Select value={roleFilter} onValueChange={(value: string) => setRoleFilter(value as "user" | "admin" | "all")}>
                 <SelectTrigger id="role-filter">
                   <SelectValue />
                 </SelectTrigger>

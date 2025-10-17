@@ -3,13 +3,53 @@ import { redirect } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ArrowLeft, Clock, BookOpen, Calendar, FileText } from 'lucide-react'
+import { ArrowLeft, BookOpen, Calendar, FileText } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
 interface AulaPageProps {
   params: {
     id: string
   }
+}
+
+interface Professor {
+  id: number
+  nome: string
+  bio?: string
+  foto_url?: string
+}
+
+interface Question {
+  id: number
+  texto_principal_rich: string
+  disciplina: string
+  banca: string
+  ano: number
+  dificuldade?: string
+  tipo: 'ME' | 'CE'
+  alternativas?: Record<string, string>
+  gabarito: string
+}
+
+interface AulaQuestao {
+  id: number
+  ordem: number
+  questions: Question
+}
+
+interface Aula {
+  id: number
+  nome: string
+  tema: string
+  subtema: string[]
+  descricao?: string
+  material?: string
+  link?: string
+  data?: string
+  created_at: string
+  professores: Professor
+  aulas_questoes: AulaQuestao[]
 }
 
 // Função para extrair ID do vídeo do YouTube
@@ -59,7 +99,7 @@ export default async function AulaPage({ params }: AulaPageProps) {
       )
     `)
     .eq('id', parseInt(id))
-    .single()
+    .single() as { data: Aula | null; error: unknown }
 
   if (error || !aula) {
     redirect('/dashboard/aulas')
@@ -164,21 +204,23 @@ export default async function AulaPage({ params }: AulaPageProps) {
               {aula.professores && (
                 <div className="mb-4 p-4 bg-gray-50 rounded-lg">
                   <div className="flex items-center gap-3">
-                    {(aula.professores as any).foto_url ? (
-                      <img 
-                        src={(aula.professores as any).foto_url} 
-                        alt={(aula.professores as any).nome}
+                    {aula.professores.foto_url ? (
+                      <Image 
+                        src={aula.professores.foto_url} 
+                        alt={aula.professores.nome}
+                        width={48}
+                        height={48}
                         className="w-12 h-12 rounded-full object-cover"
                       />
                     ) : (
                       <div className="w-12 h-12 rounded-full bg-blue-600 text-white flex items-center justify-center font-semibold">
-                        {((aula.professores as any).nome || 'P').substring(0, 2).toUpperCase()}
+                        {(aula.professores.nome || 'P').substring(0, 2).toUpperCase()}
                       </div>
                     )}
                     <div>
-                      <p className="font-semibold text-gray-900">Professor(a): {(aula.professores as any).nome}</p>
-                      {(aula.professores as any).bio && (
-                        <p className="text-sm text-gray-600">{(aula.professores as any).bio}</p>
+                      <p className="font-semibold text-gray-900">Professor(a): {aula.professores.nome}</p>
+                      {aula.professores.bio && (
+                        <p className="text-sm text-gray-600">{aula.professores.bio}</p>
                       )}
                     </div>
                   </div>
@@ -215,8 +257,8 @@ export default async function AulaPage({ params }: AulaPageProps) {
                   </h3>
                   <div className="space-y-4">
                     {aula.aulas_questoes
-                      .sort((a: any, b: any) => a.ordem - b.ordem)
-                      .map((aulaQuestao: any, index: number) => {
+                      .sort((a: AulaQuestao, b: AulaQuestao) => a.ordem - b.ordem)
+                      .map((aulaQuestao: AulaQuestao, index: number) => {
                         const question = aulaQuestao.questions
                         if (!question) return null
 
@@ -339,7 +381,7 @@ async function OutrasAulas({ tema, currentAulaId }: { tema: string; currentAulaI
                   </h3>
                   {aula.subtema && aula.subtema.length > 0 && (
                     <div className="flex flex-wrap gap-1">
-                      {aula.subtema.slice(0, 2).map((sub, idx) => (
+                      {aula.subtema.slice(0, 2).map((sub: string, idx: number) => (
                         <Badge key={idx} variant="outline" className="text-xs">
                           {sub}
                         </Badge>

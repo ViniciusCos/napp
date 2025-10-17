@@ -19,22 +19,6 @@ type AlternativaObjeto = {
   texto_html?: string
 }
 
-type QuestionData = {
-  id: string
-  ano: number
-  banca: string
-  orgao: string
-  prova: string | null
-  disciplina: string
-  tipo: 'ME' | 'CE'
-  dificuldade: string | null
-  gabarito: string
-  subtopicos: string[] | null
-  texto_principal_rich: string | null
-  texto_apoio_rich: string | null
-  comentario_rich: string | null
-  alternativas: Record<string, string> | AlternativaObjeto[] | null
-}
 
 type EditQuestionFormProps = {
   questionId: string

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -21,25 +21,18 @@ type RankingEntry = {
 interface UserSimuladoRankingProps {
   simuladoId: string
   simuladoTitle?: string
-  totalQuestions: number
 }
 
-export function UserSimuladoRanking({ simuladoId, simuladoTitle, totalQuestions }: UserSimuladoRankingProps) {
+export function UserSimuladoRanking({ simuladoId, simuladoTitle }: UserSimuladoRankingProps) {
   const [ranking, setRanking] = useState<RankingEntry[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const supabase = createClient()
 
-  useEffect(() => {
-    loadRanking()
-  }, [simuladoId])
-
-  const loadRanking = async () => {
+  const loadRanking = useCallback(async () => {
     setIsLoading(true)
     try {
       // Obter usuário atual
       const { data: { user } } = await supabase.auth.getUser()
-      setCurrentUserId(user?.id || null)
 
       // Buscar todas as tentativas completadas do simulado com dados do usuário
       // IMPORTANTE: Selecionamos apenas o campo 'name' da tabela users para não expor dados sensíveis
@@ -78,7 +71,7 @@ export function UserSimuladoRanking({ simuladoId, simuladoTitle, totalQuestions 
       const rankingData: RankingEntry[] = attempts.map((attempt, index) => ({
         position: index + 1,
         user_id: attempt.user_id,
-        user_name: (attempt.users as any)?.name || 'Usuário',
+        user_name: (attempt.users as { name: string }[])?.[0]?.name || 'Usuário',
         completed_at: attempt.completed_at!,
         time_spent_seconds: attempt.time_spent_seconds || 0,
         final_score: attempt.final_score || 0,
@@ -93,7 +86,11 @@ export function UserSimuladoRanking({ simuladoId, simuladoTitle, totalQuestions 
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [simuladoId, supabase])
+
+  useEffect(() => {
+    loadRanking()
+  }, [loadRanking])
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)

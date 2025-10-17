@@ -260,7 +260,7 @@ export default function SimuladoPage() {
     } finally {
       setIsLoading(false)
     }
-  }, [simuladoId, supabase, router, checkOngoingAttempt, checkPreviousAttempts])
+  }, [simuladoId, supabase, router, checkOngoingAttempt, checkPreviousAttempts, dateAvailabilityMessage])
 
   useEffect(() => {
     loadSimulado()
@@ -283,6 +283,104 @@ export default function SimuladoPage() {
     }
   }, [hasStarted, hasFinished])
 
+  const calculateScore = useCallback(() => {
+    let correct = 0
+    let incorrect = 0
+    
+    questions.forEach((question, index) => {
+      if (userAnswers[index]) {
+        if (userAnswers[index] === question.gabarito) {
+          correct++
+        } else {
+          incorrect++
+        }
+      }
+    })
+
+    // Aplicar fator de correção se definido
+    let finalScore = correct
+    if (simulado?.fator_correcao && simulado.fator_correcao > 0) {
+      const penalty = Math.floor(incorrect / simulado.fator_correcao)
+      finalScore = Math.max(0, correct - penalty) // Não pode ser negativo
+    }
+    
+    return {
+      correct,
+      incorrect,
+      finalScore,
+      total: questions.length,
+      percentage: Math.round((finalScore / questions.length) * 100),
+      hasPenalty: simulado?.fator_correcao ? true : false,
+      penaltyApplied: simulado?.fator_correcao ? Math.floor(incorrect / simulado.fator_correcao) : 0
+    }
+  }, [questions, userAnswers, simulado?.fator_correcao])
+
+  // Salvar resultados no banco de dados
+  const saveResults = useCallback(async () => {
+    if (!attemptId || !startTime) {
+      console.error('Attempt ID ou startTime não encontrado')
+      return
+    }
+
+    try {
+      const score = calculateScore()
+      const endTime = new Date()
+      const timeSpentSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000)
+
+      // Atualizar a tentativa com os resultados
+      const { error: attemptError } = await supabase
+        .from('simulado_attempts')
+        .update({
+          completed_at: endTime.toISOString(),
+          time_spent_seconds: timeSpentSeconds,
+          correct_answers: score.correct,
+          incorrect_answers: score.incorrect,
+          blank_answers: score.total - Object.keys(userAnswers).length,
+          final_score: score.finalScore,
+          percentage: score.percentage,
+          penalty_applied: score.penaltyApplied
+        })
+        .eq('id', attemptId)
+
+      if (attemptError) {
+        console.error('Erro ao salvar resultado da tentativa:', attemptError)
+        toast.error('Erro ao salvar resultado')
+        return
+      }
+
+      // Salvar as respostas individuais
+      const answers = questions.map((question, index) => ({
+        attempt_id: attemptId,
+        question_id: question.id,
+        user_answer: userAnswers[index] || null,
+        correct_answer: question.gabarito,
+        is_correct: userAnswers[index] === question.gabarito,
+        question_order: index + 1
+      }))
+
+      const { error: answersError } = await supabase
+        .from('simulado_answers')
+        .insert(answers)
+
+      if (answersError) {
+        console.error('Erro ao salvar respostas:', answersError)
+        toast.error('Erro ao salvar respostas')
+        return
+      }
+
+      toast.success('Resultado salvo com sucesso!')
+    } catch (error) {
+      console.error('Erro ao salvar resultados:', error)
+      toast.error('Erro ao salvar resultados')
+    }
+  }, [attemptId, startTime, calculateScore, supabase, userAnswers, questions])
+
+  const handleFinish = useCallback(async () => {
+    // Salvar resultados antes de finalizar
+    await saveResults()
+    setHasFinished(true)
+  }, [saveResults])
+
   // Timer
   useEffect(() => {
     if (!hasStarted || hasFinished || timeRemaining <= 0) return
@@ -298,7 +396,7 @@ export default function SimuladoPage() {
     }, 1000)
 
     return () => clearInterval(timer)
-  }, [hasStarted, hasFinished, timeRemaining])
+  }, [hasStarted, hasFinished, timeRemaining, handleFinish])
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)
@@ -362,66 +460,6 @@ export default function SimuladoPage() {
     }
   }
 
-  // Salvar resultados no banco de dados
-  const saveResults = async () => {
-    if (!attemptId || !startTime) {
-      console.error('Attempt ID ou startTime não encontrado')
-      return
-    }
-
-    try {
-      const score = calculateScore()
-      const endTime = new Date()
-      const timeSpentSeconds = Math.floor((endTime.getTime() - startTime.getTime()) / 1000)
-
-      // Atualizar a tentativa com os resultados
-      const { error: attemptError } = await supabase
-        .from('simulado_attempts')
-        .update({
-          completed_at: endTime.toISOString(),
-          time_spent_seconds: timeSpentSeconds,
-          correct_answers: score.correct,
-          incorrect_answers: score.incorrect,
-          blank_answers: score.total - Object.keys(userAnswers).length,
-          final_score: score.finalScore,
-          percentage: score.percentage,
-          penalty_applied: score.penaltyApplied
-        })
-        .eq('id', attemptId)
-
-      if (attemptError) {
-        console.error('Erro ao salvar resultado da tentativa:', attemptError)
-        toast.error('Erro ao salvar resultado')
-        return
-      }
-
-      // Salvar as respostas individuais
-      const answers = questions.map((question, index) => ({
-        attempt_id: attemptId,
-        question_id: question.id,
-        user_answer: userAnswers[index] || null,
-        correct_answer: question.gabarito,
-        is_correct: userAnswers[index] === question.gabarito,
-        question_order: index + 1
-      }))
-
-      const { error: answersError } = await supabase
-        .from('simulado_answers')
-        .insert(answers)
-
-      if (answersError) {
-        console.error('Erro ao salvar respostas:', answersError)
-        toast.error('Erro ao salvar respostas')
-        return
-      }
-
-      toast.success('Resultado salvo com sucesso!')
-    } catch (error) {
-      console.error('Erro ao salvar resultados:', error)
-      toast.error('Erro ao salvar resultados')
-    }
-  }
-
   const handleNavigateAway = (navigationFn: () => void) => {
     if (hasStarted && !hasFinished) {
       setPendingNavigation(() => navigationFn)
@@ -442,44 +480,6 @@ export default function SimuladoPage() {
   const cancelExit = () => {
     setShowExitDialog(false)
     setPendingNavigation(null)
-  }
-
-  const handleFinish = async () => {
-    // Salvar resultados antes de finalizar
-    await saveResults()
-    setHasFinished(true)
-  }
-
-  const calculateScore = () => {
-    let correct = 0
-    let incorrect = 0
-    
-    questions.forEach((question, index) => {
-      if (userAnswers[index]) {
-        if (userAnswers[index] === question.gabarito) {
-          correct++
-        } else {
-          incorrect++
-        }
-      }
-    })
-
-    // Aplicar fator de correção se definido
-    let finalScore = correct
-    if (simulado?.fator_correcao && simulado.fator_correcao > 0) {
-      const penalty = Math.floor(incorrect / simulado.fator_correcao)
-      finalScore = Math.max(0, correct - penalty) // Não pode ser negativo
-    }
-    
-    return {
-      correct,
-      incorrect,
-      finalScore,
-      total: questions.length,
-      percentage: Math.round((finalScore / questions.length) * 100),
-      hasPenalty: simulado?.fator_correcao ? true : false,
-      penaltyApplied: simulado?.fator_correcao ? Math.floor(incorrect / simulado.fator_correcao) : 0
-    }
   }
 
   if (isLoading) {

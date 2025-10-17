@@ -60,6 +60,7 @@ export function ProfessorSelect({ value, onValueChange, disabled }: ProfessorSel
 
       setProfessores(data || [])
     } catch (err) {
+      console.error('Erro ao carregar professores:', err)
       toast.error('Erro inesperado ao carregar professores')
     } finally {
       setIsLoading(false)
@@ -114,6 +115,7 @@ export function ProfessorSelect({ value, onValueChange, disabled }: ProfessorSel
         onValueChange(data.id.toString())
       }
     } catch (err) {
+      console.error('Erro ao criar professor:', err)
       toast.error('Erro inesperado ao criar professor')
     } finally {
       setIsSaving(false)

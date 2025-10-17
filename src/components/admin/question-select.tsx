@@ -25,7 +25,7 @@ type Question = {
   ano: number
   dificuldade: string | null
   tipo: 'ME' | 'CE'
-  alternativas: any[] | null
+  alternativas: Record<string, string> | null
   gabarito: string
 }
 
@@ -104,6 +104,7 @@ export function QuestionSelect({ selectedQuestions, onQuestionsChange, disabled 
       setBancas(bancasUnicas)
       setDificuldades(dificuldadesUnicas)
     } catch (err) {
+      console.error('Erro ao carregar questões:', err)
       toast.error('Erro inesperado ao carregar questões')
     } finally {
       setIsLoading(false)
@@ -185,7 +186,7 @@ export function QuestionSelect({ selectedQuestions, onQuestionsChange, disabled 
     setIsCreateSheetOpen(true)
   }
 
-  const handleFormChange = (field: string, value: any) => {
+  const handleFormChange = (field: string, value: string | number | Record<string, string>) => {
     setFormData(prev => ({ ...prev, [field]: value }))
   }
 
@@ -290,6 +291,7 @@ export function QuestionSelect({ selectedQuestions, onQuestionsChange, disabled 
       clearForm()
       
     } catch (err) {
+      console.error('Erro ao criar questão:', err)
       toast.error('Erro inesperado ao criar questão')
     } finally {
       setIsCreating(false)
@@ -951,12 +953,12 @@ export function QuestionSelect({ selectedQuestions, onQuestionsChange, disabled 
                                    />
                                    
                                    {/* Alternativas */}
-                                   {question.alternativas && question.alternativas.length > 0 && (
+                                   {question.alternativas && Object.keys(question.alternativas).length > 0 && (
                                      <div className="space-y-2">
                                        <h4 className="text-sm font-semibold text-gray-800 mb-2">Alternativas:</h4>
                                        <div className="space-y-2">
-                                         {question.alternativas.map((alt: any, index: number) => {
-                                           const letra = String.fromCharCode(65 + index)
+                                         {Object.entries(question.alternativas).map(([key, value], index: number) => {
+                                           const letra = key
                                            const isCorrect = letra === question.gabarito
                                            
                                            return (
@@ -978,7 +980,7 @@ export function QuestionSelect({ selectedQuestions, onQuestionsChange, disabled 
                                                    isCorrect ? 'text-green-800' : 'text-gray-700'
                                                  }`}
                                                  dangerouslySetInnerHTML={{ 
-                                                   __html: alt.texto || alt 
+                                                   __html: value 
                                                  }}
                                                />
                                                {isCorrect && (

@@ -1,12 +1,13 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { toast } from 'sonner'
 import { Trophy, Medal, Award, Clock, Target, TrendingUp, Calendar, Download } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+
 
 type RankingEntry = {
   position: number
@@ -43,11 +44,7 @@ export function SimuladoRanking({ simuladoId, simuladoTitle }: SimuladoRankingPr
   const [isLoading, setIsLoading] = useState(true)
   const supabase = createClient()
 
-  useEffect(() => {
-    loadRanking()
-  }, [simuladoId])
-
-  const loadRanking = async () => {
+  const loadRanking = useCallback(async () => {
     setIsLoading(true)
     try {
       // Buscar todas as tentativas completadas do simulado com dados do usuário
@@ -91,8 +88,8 @@ export function SimuladoRanking({ simuladoId, simuladoTitle }: SimuladoRankingPr
       const rankingData: RankingEntry[] = attempts.map((attempt, index) => ({
         position: index + 1,
         user_id: attempt.user_id,
-        user_name: (attempt.users as any)?.name || 'Usuário desconhecido',
-        user_email: (attempt.users as any)?.email || '',
+        user_name: (attempt.users as { name: string; email: string }[])?.[0]?.name || 'Usuário desconhecido',
+        user_email: (attempt.users as { name: string; email: string }[])?.[0]?.email || '',
         completed_at: attempt.completed_at!,
         time_spent_seconds: attempt.time_spent_seconds || 0,
         correct_answers: attempt.correct_answers,
@@ -125,7 +122,11 @@ export function SimuladoRanking({ simuladoId, simuladoTitle }: SimuladoRankingPr
     } finally {
       setIsLoading(false)
     }
-  }
+  }, [simuladoId, supabase])
+
+  useEffect(() => {
+    loadRanking()
+  }, [loadRanking])
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600)

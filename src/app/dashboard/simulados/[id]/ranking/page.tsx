@@ -46,7 +46,6 @@ export default async function RankingPage({ params }: RankingPageProps) {
         <UserSimuladoRanking 
           simuladoId={simulado.id} 
           simuladoTitle={simulado.title}
-          totalQuestions={simulado.total_questions}
         />
       </div>
     </div>
